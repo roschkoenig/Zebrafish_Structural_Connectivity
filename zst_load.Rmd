@@ -1,0 +1,93 @@
+---
+title: "Extract connections from swc files"
+output: html_notebook
+---
+
+This code will look for folders called 'Left' and 'Right' in the folder 'Neurons' stored in '02_Data' and identify all neuronal tracing files. These will be loaded, and coordinates of the start, and end-points of each connection will be extracted and stored in a csv file. This step should be followed by 
+
+### Housekeeping
+
+Loading and if necessary installing of packages
+
+```{r}
+# # install
+# #-------------------------------------------------------------------------------------------
+# install.packages("nat")
+# install.packages("ggplot2")
+
+# Use
+#-------------------------------------------------------------------------------------------
+library(nat)
+library(ggplot2)
+```
+
+The next section identifies the file names of all the neurons and packs them into two data structures
+
+```{r}
+# Define paths and things
+#-------------------------------------------------------------------------------------------
+F       = list()
+fs      = .Platform$file.sep
+F$base  = "~/Google Drive File Stream/My Drive/Research/2003 Zebrafish Structure"
+F$code  = paste(F$base, "01_Code", sep=fs)
+F$data  = paste(F$base, "02_Data", sep=fs)
+
+l_neurons = list.files(paste(F$data, "Neurons", "Left", sep=fs), full.names=T)
+r_neurons = list.files(paste(F$data, "Neurons", "Right", sep=fs), full.names=T)
+
+```
+
+### Loading and collating tracings
+
+```{r, fig.height = 12}
+
+# Define function to generate a new row for addition to a dataframe for each unique connection
+#--------------------------------------------------------------------------------
+swc2df = function(ID, nrn, ep){
+  start_x = nrn$d[nrn$StartPoint,]$X
+  start_y = nrn$d[nrn$StartPoint,]$Y
+  start_z = nrn$d[nrn$StartPoint,]$Z
+  
+  stop_x = nrn$d[ep,]$X
+  stop_y = nrn$d[ep,]$Y
+  stop_z = nrn$d[ep,]$Z 
+  
+  return(data.frame(ID, start_x, start_y, start_z, stop_x, stop_y, stop_z))
+}
+
+
+# Initialise empty dataframe
+#--------------------------------------------------------------------------------
+allcnx = data.frame()
+
+# Loop through right hemisphere files to add to dataframe
+#--------------------------------------------------------------------------------
+for (n in 1:length(r_neurons)){
+  ID  = paste("R", sprintf("%03d", n), sep="")
+  nrn = read.neuron(r_neurons[n])
+  for (ep in nrn$EndPoints){
+    allcnx = rbind(allcnx, swc2df(ID, nrn, ep))
+  }
+}
+
+# Loop through left hemisphere files to add to dataframe
+#--------------------------------------------------------------------------------
+for (n in 1:length(l_neurons)){
+  ID  = paste("L", sprintf("%03d", n), sep="")
+  nrn = read.neuron(l_neurons[n])
+  for (ep in nrn$EndPoints){
+    allcnx = rbind(allcnx, swc2df(ID, nrn, ep))
+  }
+}
+
+print(allcnx)
+
+```
+
+### Save output as csv file
+
+``` {r}
+write.csv(allcnx, paste(F$data, "Traced_Connections.csv", sep=fs), row.names = FALSE)
+```
+
+
